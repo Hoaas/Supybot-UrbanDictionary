@@ -8,9 +8,8 @@
 
 # my libs
 import json
-import urllib2
-import urllib
-import string
+import urllib.request, urllib.error, urllib.parse
+import urllib.request, urllib.parse, urllib.error
 import unicodedata
 
 # supybot libs
@@ -31,8 +30,8 @@ class UrbanDictionary(callbacks.Plugin):
     
     # helper methods.
     def _remove_accents(self, data):
-        nkfd_form = unicodedata.normalize('NFKD', unicode(data))
-        return u"".join([c for c in nkfd_form if not unicodedata.combining(c)])
+        nkfd_form = unicodedata.normalize('NFKD', str(data))
+        return "".join([c for c in nkfd_form if not unicodedata.combining(c)])
 
     def _red(self, string):
         """return a red string."""
@@ -70,13 +69,13 @@ class UrbanDictionary(callbacks.Plugin):
                         args['numberOfDefinitions'] = value
         
         # url                 
-        url = 'http://api.urbandictionary.com/v0/define?term=%s' % (urllib.quote(optterm))
+        url = 'http://api.urbandictionary.com/v0/define?term=%s' % (urllib.parse.quote(optterm))
 
         # try fetching url.
         try:
-            request = urllib2.Request(url)
-            response = urllib2.urlopen(request)
-        except Exception, e:
+            request = urllib.request.Request(url)
+            response = urllib.request.urlopen(request)
+        except Exception as e:
             irc.reply("{0} fetching {1}".format(self._red("Error"), url))
             self.log.debug("Error fetching: {0} :: {1}".format(url, e))
             return
@@ -100,12 +99,15 @@ class UrbanDictionary(callbacks.Plugin):
         if result_type == "exact" and len(jsondata['list']) > 0: # exact, means we found, and we have definitions.
             output = [] # container to put all def/ex in.
             for item in jsondata['list'][0:int(args['numberOfDefinitions'])]: 
-                outputstring = "{0}".format(item['definition'].encode('utf-8').strip()) # start outputstring.
+                outputstring = "{0}".format(item['definition'].strip()) # start outputstring.
                 if args['showExamples']: # if we're showing examples
-                    if self.registryValue('disableANSI'):
-                        outputstring += " {0} {1} {2}".format("[ex:]", item['example'].encode('utf-8').strip(), "[/ex]")
-                    else:
-                        outputstring += " {0} {1} {2}".format(self._bu("[ex:]"), item['example'].encode('utf-8').strip(), self._bu("[/ex]"))
+                    try:
+                        if self.registryValue('disableANSI'):
+                            outputstring += " {0} {1} {2}".format("[ex:]", item['example'].strip(), "[/ex]")
+                        else:
+                            outputstring += " {0} {1} {2}".format(self._bu("[ex:]"), item['example'].strip(), self._bu("[/ex]"))
+                    except:
+                        self.log.warning("UrbanDictionary: Failed to find exampple for query '" + optterm + "'")
                 if args['showVotes']: # if we're showing votes
                         outputstring += " (+{0}/-{1})".format(item['thumbs_up'], item['thumbs_down'])
                 
@@ -113,12 +115,12 @@ class UrbanDictionary(callbacks.Plugin):
             
             #output.
             if self.registryValue('disableANSI'):
-                irc.reply("{0} ({1}): {2}".format(optterm, total, string.join([item for item in output], " | ")))
+                irc.reply("{0} ({1}): {2}".format(optterm, total, " | " .join([item for item in output])))
             else:
-                irc.reply("{0} ({1}): {2}".format(self._red(optterm), total, string.join([item for item in output], " | ")))
+                irc.reply("{0} ({1}): {2}".format(self._red(optterm), total, " | " .join([item for item in output])))
 
         elif result_type == "no_results" and len(jsondata['list']) > 0:
-            outrelated = string.join([item['term'].encode('utf-8') for item in jsondata['list']], " | ")
+            outrelated = " | ".join([item['term'] for item in jsondata['list']])
             
             if self.registryValue('disableANSI'):
                 irc.reply("{0}: {1} not found. {2}: {3}".format("ERROR", optterm, "Related terms", outrelated))
